@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Ventes - Maroc (Corrigé)</title>
+    <style>
+        :root {
+            --primary: #006233; /* Vert Maroc */
+            --secondary: #c1272d; /* Rouge Maroc */
+            --bg-light: #f4f6f9;
+            --white: #ffffff;
+            --text-dark: #333333;
+            --text-grey: #666666;
+            --border: #e0e0e0;
+            --shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-light); color: var(--text-dark); display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        aside { width: 250px; background-color: var(--white); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .menu-item { padding: 12px 15px; margin-bottom: 5px; border-radius: 8px; cursor: pointer; color: var(--text-grey); transition: 0.3s; }
+        .menu-item.active, .menu-item:hover { background-color: #e8f5e9; color: var(--primary); font-weight: 600; }
+
+        /* Main Content */
+        main { flex: 1; padding: 30px; overflow-y: auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        h2 { font-size: 1.8rem; }
+
+        /* KPI Cards */
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); }
+        .card h3 { font-size: 0.9rem; color: var(--text-grey); margin-bottom: 10px; }
+        .card .value { font-size: 1.8rem; font-weight: bold; color: var(--text-dark); }
+
+        /* SQL Simulator Section */
+        .sql-bar { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 20px; border: 1px solid var(--border); }
+        .sql-input-group { display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Consolas', monospace; font-size: 1rem; background-color: #fafafa; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .btn-run { background-color: var(--primary); color: white; }
+        .btn-run:hover { background-color: #004d27; }
+        .btn-reset { background-color: #f0f0f0; color: var(--text-grey); }
+        .examples { margin-top: 10px; font-size: 0.85rem; color: var(--text-grey); }
+        .example-tag { background: #eee; padding: 4px 8px; border-radius: 4px; margin-right: 5px; cursor: pointer; display: inline-block; margin-bottom: 5px; border: 1px solid #ddd; }
+        .example-tag:hover { background: #ddd; border-color: #ccc; }
+        
+        #sql-error { color: #d32f2f; font-size: 0.9rem; margin-top: 8px; padding: 8px; background: #ffebee; border-radius: 4px; display: none; }
+
+        /* Data Table */
+        .table-container { background: var(--white); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background-color: #f8f9fa; border-bottom: 2px solid var(--border); }
+        th, td { padding: 15px 20px; text-align: left; }
+        th { font-weight: 600; color: var(--text-grey); cursor: pointer; user-select: none; }
+        th:hover { color: var(--primary); background-color: #f1f1f1; }
+        tr { border-bottom: 1px solid var(--border); transition: 0.2s; }
+        tr:hover { background-color: #fafafa; }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .status-paid { background-color: #e6f4ea; color: #1e7e34; }
+        .status-pending { background-color: #fff3cd; color: #856404; }
+        .status-cancelled { background-color: #f8d7da; color: #721c24; }
+        .amount { font-weight: bold; color: var(--text-dark); }
+    </style>
+</head>
+<body>
+
+    <aside>
+        <div class="logo"><span>🇲🇦</span> MarketDash</div>
+        <div class="menu-item active">Vue d'ensemble</div>
+        <div class="menu-item">Clients</div>
+        <div class="menu-item">Rapports</div>
+    </aside>
+
+    <main>
+        <header>
+            <div>
+                <h2>Tableau de Bord</h2>
+                <p style="color: var(--text-grey)">Gestion des ventes locale.</p>
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-grey)">Date: <span id="current-date"></span></div>
+        </header>
+
+        <section class="kpi-container">
+            <div class="card">
+                <h3>Chiffre d'Affaires Total</h3>
+                <div class="value" id="kpi-revenue">0 MAD</div>
+            </div>
+            <div class="card">
+                <h3>Commandes</h3>
+                <div class="value" id="kpi-orders">0</div>
+            </div>
+            <div class="card">
+                <h3>Ville Principale</h3>
+                <div class="value" id="kpi-top-city">-</div>
+            </div>
+            <div class="card">
+                <h3>Panier Moyen</h3>
+                <div class="value" id="kpi-avg">0 MAD</div>
+            </div>
+        </section>
+
+        <section class="sql-bar">
+            <h3 style="margin-bottom: 10px; font-size: 1rem;">Moteur de Requête (Simulateur SQL)</h3>
+            <div class="sql-input-group">
+                <input type="text" id="sql-input" placeholder="Ex: SELECT * WHERE ville = 'Casablanca' AND montant > 1000" value="SELECT *">
+                <button class="btn-run" onclick="processSQL()">Exécuter</button>
+                <button class="btn-reset" onclick="resetData()">Réinitialiser</button>
+            </div>
+            <div class="examples">
+                Essayer :
+                <span class="example-tag" onclick="setSQL("ville = 'Casablanca'")">ville = 'Casablanca'</span>
+                <span class="example-tag" onclick="setSQL("montant > 3000")">montant > 3000</span>
+                <span class="example-tag" onclick="setSQL("ville = 'Tanger' OR ville = 'Agadir'")">Tanger OU Agadir</span>
+                <span class="example-tag" onclick="setSQL("status = 'En attente'")">En attente</span>
+            </div>
+            <div id="sql-error"></div>
+        </section>
+
+        <section class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('id')">ID ⬍</th>
+                        <th onclick="sortTable('client')">Client ⬍</th>
+                        <th onclick="sortTable('ville')">Ville ⬍</th>
+                        <th onclick="sortTable('date')">Date ⬍</th>
+                        <th onclick="sortTable('montant')">Montant (MAD) ⬍</th>
+                        <th onclick="sortTable('status')">Statut ⬍</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Rows injected via JS -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        // --- 1. Données ---
+        const rawData = [
+            { id: 1001, client: "Youssef Amrani", ville: "Casablanca", date: "2023-10-01", montant: 4500, status: "Payé" },
+            { id: 1002, client: "Fatima Zahra", ville: "Rabat", date: "2023-10-02", montant: 1200, status: "En attente" },
+            { id: 1003, client: "Karim Benjelloun", ville: "Tanger", date: "2023-10-03", montant: 850, status: "Payé" },
+            { id: 1004, client: "Amina Tazi", ville: "Marrakech", date: "2023-10-04", montant: 3200, status: "Payé" },
+            { id: 1005, client: "Omar Boudiaf", ville: "Casablanca", date: "2023-10-05", montant: 500, status: "Annulé" },
+            { id: 1006, client: "Salma El Idrissi", ville: "Agadir", date: "2023-10-06", montant: 5600, status: "Payé" },
+            { id: 1007, client: "Hassan Chaoui", ville: "Fès", date: "2023-10-07", montant: 1500, status: "En attente" },
+            { id: 1008, client: "Nadia Mansouri", ville: "Casablanca", date: "2023-10-08", montant: 2100, status: "Payé" },
+            { id: 1009, client: "Mohammed Alami", ville: "Oujda", date: "2023-10-09", montant: 900, status: "Payé" },
+            { id: 1010, client: "Laila Meziane", ville: "Marrakech", date: "2023-10-10", montant: 6700, status: "Payé" }
+        ];
+
+        let currentData = [...rawData];
+        let sortDirection = 1;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('current-date').textContent = new Date().toLocaleDateString('fr-MA');
+            updateDashboard(currentData);
+        });
+
+        // --- 2. Rendu et KPIs ---
+        function updateDashboard(data) {
+            renderTable(data);
+            calculateKPIs(data);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; color:#666;">Aucun résultat trouvé.</td></tr>';
+                return;
+            }
+
+            const rowsHtml = data.map(row => {
+                let statusClass = '';
+                if (row.status === 'Payé') statusClass = 'status-paid';
+                else if (row.status === 'En attente') statusClass = 'status-pending';
+                else statusClass = 'status-cancelled';
+
+                const amountFormatted = new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' }).format(row.montant);
+                
+                return `
+                    <tr>
+                        <td>#${row.id}</td>
+                        <td><strong>${row.client}</strong></td>
+                        <td>${row.ville}</td>
+                        <td>${row.date}</td>
+                        <td class="amount">${amountFormatted}</td>
+                        <td><span class="status-badge ${statusClass}">${row.status}</span></td>
+                    </tr>
+                `;
+            }).join('');
+            tbody.innerHTML = rowsHtml;
+        }
+
+        function calculateKPIs(data) {
+            const validData = data.filter(i => i.status !== 'Annulé');
+            const totalRevenue = validData.reduce((sum, item) => sum + item.montant, 0);
+            const totalOrders = data.length;
+            const avgOrder = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+            // Top City Logic
+            const cityCounts = validData.reduce((acc, item) => {
+                acc[item.ville] = (acc[item.ville] || 0) + 1;
+                return acc;
+            }, {});
+            
+            let topCity = "-";
+            let maxCount = 0;
+            for (const [city, count] of Object.entries(cityCounts)) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    topCity = city;
+                }
+            }
+
+            document.getElementById('kpi-revenue').textContent = new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' }).format(totalRevenue);
+            document.getElementById('kpi-orders').textContent = totalOrders;
+            document.getElementById('kpi-avg').textContent = new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' }).format(avgOrder);
+            document.getElementById('kpi-top-city').textContent = topCity;
+        }
+
+        // --- 3. Moteur SQL CORRIGÉ (Regex Based) ---
+        
+        function setSQL(condition) {
+            document.getElementById('sql-input').value = `SELECT * WHERE ${condition}`;
+            processSQL();
+        }
+
+        function resetData() {
+            document.getElementById('sql-input').value = "SELECT *";
+            document.getElementById('sql-error').style.display = 'none';
+            currentData = [...rawData];
+            updateDashboard(currentData);
+        }
+
+        function processSQL() {
+            const input = document.getElementById('sql-input').value;
+            const errorDiv = document.getElementById('sql-error');
+            
+            try {
+                // 1. Nettoyage
+                const query = input.trim();
+                
+                // Vérification basique
+                if (!query.toUpperCase().startsWith("SELECT")) {
+                    throw new Error("La requête doit commencer par SELECT.");
+                }
+
+                // 2. Extraction de la clause WHERE (ignore FROM table_name)
+                // Regex: Cherche le mot WHERE suivi de tout ce qui suit (insensible à la casse)
+                const whereMatch = query.match(/WHERE\s+(.*)/i);
+                
+                if (!whereMatch) {
+                    // Pas de WHERE -> on affiche tout
+                    currentData = [...rawData];
+                } else {
+                    const conditionsStr = whereMatch[1];
+                    
+                    // Séparer les conditions par AND (insensible à la casse)
+                    // On utilise une regex pour splitter proprement
+                    const conditions = conditionsStr.split(/\s+AND\s+/i);
+
+                    // Parser chaque condition
+                    const parsedConditions = conditions.map(cond => {
+                        // Regex robuste pour capturer: Colonne, Opérateur, Valeur
+                        // Accepte: 'Chaîne' ou Nombre
+                        const regex = /([a-zA-Z0-9_]+)\s*(=|>=|<=|>|<|!=)\s*('([^']+)'|(\d+(\.\d+)?))/;
+                        const match = cond.match(regex);
+
+                        if (!match) {
+                            throw new Error(`Syntaxe incorrecte dans: "${cond}"`);
+                        }
+
+                        return {
+                            column: match[1].toLowerCase(), // Normaliser le nom de la colonne en minuscule
+                            operator: match[2],
+                            value: match[4] ? match[4] : parseFloat(match[5]), // C'est une chaîne ou un nombre ?
+                            isString: !!match[4]
+                        };
+                    });
+
+                    // Filtrer les données
+                    currentData = rawData.filter(row => {
+                        // Toutes les conditions doivent être vraies
+                        return parsedConditions.every(cond => {
+                            const rowValue = row[cond.column];
+                            
+                            // Si la colonne n'existe pas dans le JSON
+                            if (rowValue === undefined) return false;
+
+                            // Comparaison
+                            if (cond.isString) {
+                                // Comparaison de chaînes insensible à la casse
+                                const valA = String(rowValue).toLowerCase();
+                                const valB = String(cond.value).toLowerCase();
+                                return evaluate(valA, valB, cond.operator);
+                            } else {
+                                // Comparaison numérique
+                                return evaluate(Number(rowValue), Number(cond.value), cond.operator);
+                            }
+                        });
+                    });
+                }
+
+                updateDashboard(currentData);
+                errorDiv.style.display = 'none';
+
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        // Fonction d'aide pour les comparaisons
+        function evaluate(a, b, op) {
+            switch(op) {
+                case '=': return a == b;
+                case '>': return a > b;
+                case '<': return a < b;
+                case '>=': return a >= b;
+                case '<=': return a <= b;
+                case '!=': return a != b;
+                default: return false;
+            }
+        }
+
+        function showError(msg) {
+            const errorDiv = document.getElementById('sql-error');
+            errorDiv.textContent = "⚠️ " + msg;
+            errorDiv.style.display = 'block';
+        }
+
+        // --- 4. Tri ---
+        function sortTable(column) {
+            sortDirection *= -1;
+            currentData.sort((a, b) => {
+                let valA = a[column];
+                let valB = b[column];
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+                if (valA < valB) return -1 * sortDirection;
+                if (valA > valB) return 1 * sortDirection;
+                return 0;
+            });
+            renderTable(currentData);
+        }
+    </script>
+</body>
+</html>
